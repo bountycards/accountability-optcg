@@ -34,7 +34,7 @@ DB_RETRY_DELAY_SECONDS=10
 
 - [x] Database Postgres
 - [x] Tables for users
-- [ ] Accountability Basics: Set Timezone
+- [x] Accountability Basics: Set Timezone
 - [ ] Accountability Basics: Upload your matches results (either 1 at time or multiple -> each entry gets its own row)
 - [ ] Auth Basics: Tags for permissions
 - [ ] Accountability Basics: Categories for practice (Locals, Ranked, etc)
