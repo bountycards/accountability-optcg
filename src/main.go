@@ -10,6 +10,19 @@ import (
 )
 
 func main() {
+	// Initialize database connection
+	err := InitDB()
+	if err != nil {
+		log.Fatalf("Failed to initialize database: %v", err)
+	}
+	defer CloseDB()
+
+	// Create tables if they don't exist
+	err = CreateTables()
+	if err != nil {
+		log.Fatalf("Failed to create tables: %v", err)
+	}
+
 	discord, err := discordgo.New("Bot " + getEnv("DISCORD_TOKEN"))
 	if err != nil {
 		err_msg := "Error creating Discord session: " + err.Error()
