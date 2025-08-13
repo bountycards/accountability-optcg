@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -112,4 +113,86 @@ func GetOrCreateUser(discordID, username, discriminator string) (*User, error) {
 
 	// Some other error occurred
 	return nil, fmt.Errorf("failed to get or create user: %w", err)
+}
+
+// GameResult represents a game result record
+type GameResult struct {
+	ID        int       `json:"id"`
+	UserID    int       `json:"user_id"`
+	Leader    string    `json:"leader"`
+	Opponent  string    `json:"opponent"`
+	Category  string    `json:"category"`
+	WentFirst bool      `json:"went_first"`
+	Won       bool      `json:"won"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// CreateGameResult inserts a new game result into the database
+func CreateGameResult(userID int, leader, opponent, category string, wentFirst, won bool) (*GameResult, error) {
+	query := `
+		INSERT INTO game_results (user_id, leader, opponent, category, went_first, won)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, user_id, leader, opponent, category, went_first, won, created_at
+	`
+
+	gameResult := &GameResult{}
+	err := DB.QueryRow(query, userID, leader, opponent, category, wentFirst, won).Scan(
+		&gameResult.ID,
+		&gameResult.UserID,
+		&gameResult.Leader,
+		&gameResult.Opponent,
+		&gameResult.Category,
+		&gameResult.WentFirst,
+		&gameResult.Won,
+		&gameResult.CreatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create game result: %w", err)
+	}
+
+	return gameResult, nil
+}
+
+// ValidateCategory checks if the provided category is valid
+func ValidateCategory(category string) bool {
+	validCategories := []string{
+		"Casual",
+		"Ranked",
+		"Locals",
+		"Regional",
+		"National",
+		"Tournament",
+		"Practice",
+		"Online",
+	}
+
+	for _, valid := range validCategories {
+		if strings.EqualFold(category, valid) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// NormalizeCategory normalizes the category to proper capitalization
+func NormalizeCategory(category string) string {
+	validCategories := map[string]string{
+		"casual":     "Casual",
+		"ranked":     "Ranked",
+		"locals":     "Locals",
+		"regional":   "Regional",
+		"national":   "National",
+		"tournament": "Tournament",
+		"practice":   "Practice",
+		"online":     "Online",
+	}
+
+	normalized, exists := validCategories[strings.ToLower(category)]
+	if exists {
+		return normalized
+	}
+
+	return "Casual" // Default fallback
 }

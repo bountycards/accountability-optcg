@@ -98,6 +98,11 @@ func CreateTables() error {
 		return fmt.Errorf("failed to create users table: %w", err)
 	}
 
+	err = createGameResultsTable()
+	if err != nil {
+		return fmt.Errorf("failed to create game_results table: %w", err)
+	}
+
 	log.Println("Successfully created all database tables")
 	return nil
 }
@@ -124,5 +129,79 @@ func createUsersTable() error {
 	}
 
 	log.Println("Users table created successfully")
+	return nil
+}
+
+// createGameResultsTable creates the game_results table
+func createGameResultsTable() error {
+	query := `
+	CREATE TABLE IF NOT EXISTS game_results (
+		id SERIAL PRIMARY KEY,
+		user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+		leader VARCHAR(100) NOT NULL,
+		opponent VARCHAR(100) NOT NULL,
+		category VARCHAR(50) DEFAULT 'Casual',
+		went_first BOOLEAN NOT NULL,
+		won BOOLEAN NOT NULL,
+		created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_game_results_user_id ON game_results(user_id);
+	CREATE INDEX IF NOT EXISTS idx_game_results_leader ON game_results(leader);
+	CREATE INDEX IF NOT EXISTS idx_game_results_category ON game_results(category);
+	CREATE INDEX IF NOT EXISTS idx_game_results_created_at ON game_results(created_at);
+	`
+
+	_, err := DB.Exec(query)
+	if err != nil {
+		return fmt.Errorf("failed to create game_results table: %w", err)
+	}
+
+	// Add category column if it doesn't exist (for existing databases)
+	err = addCategoryColumnIfNotExists()
+	if err != nil {
+		return fmt.Errorf("failed to add category column: %w", err)
+	}
+
+	log.Println("Game results table created successfully")
+	return nil
+}
+
+// addCategoryColumnIfNotExists adds the category column to existing game_results tables
+func addCategoryColumnIfNotExists() error {
+	// Check if category column exists
+	checkQuery := `
+		SELECT column_name 
+		FROM information_schema.columns 
+		WHERE table_name = 'game_results' AND column_name = 'category'
+	`
+
+	var columnName string
+	err := DB.QueryRow(checkQuery).Scan(&columnName)
+
+	// If the column doesn't exist, add it
+	if err == sql.ErrNoRows {
+		alterQuery := `
+			ALTER TABLE game_results 
+			ADD COLUMN category VARCHAR(50) DEFAULT 'Casual'
+		`
+
+		_, err = DB.Exec(alterQuery)
+		if err != nil {
+			return fmt.Errorf("failed to add category column: %w", err)
+		}
+
+		// Add index for the new column
+		indexQuery := `CREATE INDEX IF NOT EXISTS idx_game_results_category ON game_results(category)`
+		_, err = DB.Exec(indexQuery)
+		if err != nil {
+			return fmt.Errorf("failed to create category index: %w", err)
+		}
+
+		log.Println("Added category column to existing game_results table")
+	} else if err != nil {
+		return fmt.Errorf("failed to check for category column: %w", err)
+	}
+
 	return nil
 }
